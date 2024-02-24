@@ -1,1 +1,1 @@
-# Reinforcement Leanring for supply chain management
+# Reinforcement Learning for supply chain management
