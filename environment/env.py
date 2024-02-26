@@ -38,7 +38,7 @@ class CustomEnvPOC(gym.env):
         self.lost_sell_2 = 2
 
         # other info 
-        self.count = 0
+        self.step_count = 0
         self.max_steps = 10
 
         # define action space
@@ -46,8 +46,8 @@ class CustomEnvPOC(gym.env):
                                 high=np.array(self.prod_max), 
                                 dtype=np.float32) 
 
-        # define observation space
-        self.observation_space = Dict({
+        # define state space
+        self.state_space = Dict({
             "distrib_1": Box(low=np.array(0), 
                              high=np.arrray(self.stock_max_1),
                              dtype=np.float32), 
@@ -55,6 +55,28 @@ class CustomEnvPOC(gym.env):
                             high=np.arrray(self.stock_max_2), 
                             dtype=np.float32)
         })
+
+        # define observation state 
+        self.observation_space = self.state_space
+
+    def _normalize_obs(self):
+        """
+        Function used to normalize observation to feed agent. 
+        """
+        pass
+
+    def reset(self):
+        """
+        Define specific setting for generating an episode. 
+        """
+        # reset step count 
+        self.step_count = 0
+
+        # define initial state 
+        initial_state = self.state_space.sample()
+
+        return initial_state
+
 
     def step(self, action):
         """
