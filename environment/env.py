@@ -42,18 +42,19 @@ class CustomEnvPOC(gym.env):
         self.max_steps = 10
 
         # define action space
-        self.action_space = Box(low=np.array(0), 
-                                high=np.array(self.prod_max), 
-                                dtype=np.float32) 
+        self.action_space =  Box(
+            low=np.array([0., 0.]),
+            high=np.array([self.prod_max, self.prod_max]), 
+        )
 
         # define state space
         self.state_space = Dict({
             "distrib_1": Box(low=np.array(0), 
-                             high=np.arrray(self.stock_max_1),
+                             high=np.array(self.demand_1 + self.stock_max_1),
                              dtype=np.float32), 
-            "distrib_2":Box(low=np.array(0), 
-                            high=np.arrray(self.stock_max_2), 
-                            dtype=np.float32)
+            "distrib_2": Box(low=np.array(0), 
+                             high=np.array(self.demand_2 + self.stock_max_2), 
+                             dtype=np.float32)
         })
 
         # define observation state 
