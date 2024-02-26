@@ -2,11 +2,14 @@
 Main file for creating environment openai gym friendly. 
 
 Creation date: 24/02/2024
-Last modification: 24/02/024
+Last modification: 26/02/024
 By: Mehdi EL KANSOULI 
 """
 
+import numpy as np 
 import gym 
+
+from gym.spaces import Box, Dict
 
 
 class CustomEnvPOC(gym.env):
@@ -39,8 +42,19 @@ class CustomEnvPOC(gym.env):
         self.max_steps = 10
 
         # define action space
+        self.action_space = Box(low=np.array(0), 
+                                high=np.array(self.prod_max), 
+                                dtype=np.float32) 
 
         # define observation space
+        self.observation_space = Dict({
+            "distrib_1": Box(low=np.array(0), 
+                             high=np.arrray(self.stock_max_1),
+                             dtype=np.float32), 
+            "distrib_2":Box(low=np.array(0), 
+                            high=np.arrray(self.stock_max_2), 
+                            dtype=np.float32)
+        })
 
     def step(self, action):
         """
