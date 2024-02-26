@@ -46,7 +46,7 @@ class CustomEnvPOC(gym.Env):
         # define state space
         self.state_space = Dict({
             supplier: Box(low=np.array([0]), 
-                          high=np.array([val.stock_max]),
+                          high=np.array([val.get("stock_max")]),
                           dtype=np.float32)
             for supplier, val in suppliers.items()
         })
@@ -80,24 +80,24 @@ class CustomEnvPOC(gym.Env):
 
         :params action: int
         """
-        # compute cost of prod 
-        total_ = np.sum(action.values())
-        reward = total_ * self.prod_cost
-
-        # add cost of excessive prod 
-        reward += max(total_ - self.prod_max, 0) * self.excess_prod_cost
+        # intitilaize reward and total prod
+        reward = 0
+        total_prod = 0
 
         # get aciton for each supplier 
         for s, a in action.items():
+
+            # add to total prod
+            total_prod += a
 
             # get supplier info 
             supplier = self.suppliers.get(s)
             
             # get total nb of products 
-            total_prod = self.state.get(s) + a
+            total_ = self.state.get(s)[0] + a
 
             # get new stock and demand loss (retrieve demand)
-            pivot = total_prod - supplier.get("demand")
+            pivot = total_ - supplier.get("demand")
 
             if pivot >= 0:
                 new_stock = pivot
@@ -120,6 +120,12 @@ class CustomEnvPOC(gym.Env):
 
             # add to overall reward 
             reward += reward_ 
+        
+        # compute cost of prod 
+        reward += total_prod * self.prod_cost
+
+        # add cost of excessive prod 
+        reward += max(total_prod - self.prod_max, 0) * self.excess_prod_cost
 
         reward = self._normalize_reward(reward)  # transform in a real reward
         obs = self.state
@@ -141,7 +147,7 @@ def test0():
 
     # demand, sotck_max, stock_cost, lost_sell, transport_cost, sell_price
 
-    state_space = {
+    suppliers = {
     "distrib_1": {
         "demand": 100, 
         "stock_max": 200, 
@@ -160,13 +166,20 @@ def test0():
     }  
     }
     
-    state = state_space.sample()
-    print("Initial space: ", state)
+    # define dumb agent action 
+    my_agent = {
+        key: 100
+        for key in suppliers.keys()
+    }
 
-    # modif
-    state["distrib_1"] = 15
+    env = CustomEnvPOC(suppliers=suppliers)
+    initial_state = env.reset()
+    print("Initial state: ", initial_state)
 
-    print(state)
+    for _ in range(10):
+        obs, r, _ = env.step(my_agent)
+        print(obs, r, _)
+
 
 
 if __name__ == "__main__":
