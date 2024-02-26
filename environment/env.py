@@ -43,10 +43,10 @@ class CustomEnvPOC(gym.Env):
             for supplier in suppliers.keys()
         })
 
-        # define state space
+        # define state space (current stock + next day demand)
         self.state_space = Dict({
-            supplier: Box(low=np.array([0]), 
-                          high=np.array([val.get("stock_max")]),
+            supplier: Box(low=np.array([0., 50.]), 
+                          high=np.array([val.get("stock_max"), 150]),
                           dtype=np.float32)
             for supplier, val in suppliers.items()
         })
@@ -67,11 +67,17 @@ class CustomEnvPOC(gym.Env):
         # reset step count 
         self.step_count = 0
 
-        # define initial state 
+        # define initial state (actual sells the next day) 
         initial_state = self.state_space.sample()
+
+        # define corresponding observation 
+        initial_obs = self._state_to_obs(initial_state)
+
+        # instantiate 
+        self.obs = initial_obs
         self.state = initial_state
 
-        return initial_state
+        return initial_obs, 
 
 
     def step(self, action: dict):
@@ -97,7 +103,7 @@ class CustomEnvPOC(gym.Env):
             total_ = self.state.get(s)[0] + a
 
             # get new stock and demand loss (retrieve demand)
-            pivot = total_ - supplier.get("demand")
+            pivot = total_ - self.state.get(s)[1]
 
             if pivot >= 0:
                 new_stock = pivot
@@ -105,21 +111,20 @@ class CustomEnvPOC(gym.Env):
             else:
                 new_stock = 0
                 demand_loss = - pivot 
-            
-            self.state[s] = np.array([new_stock])  # update state
-            
-            # compute excess stock 
+                        
+            # compute excess stock and threshold new_stock to its limit 
             excess_stock = max(new_stock - supplier.get("stock_max"), 0) 
+            new_stock = min(new_stock, supplier.get("stock_max"))
 
             # compute reward 
-            reward_ = 0
-            reward_ += new_stock * supplier.get("stock_cost")  # stock cost 
-            reward_ += demand_loss * supplier.get("lost_sell")  # sell lost
-            reward_ += a * supplier.get("transport_cost")  # cost of transport
-            reward_ += excess_stock * self.excess_stock_cost  # pay excess stock 
+            reward_ = self._reward(supplier, new_stock, demand_loss, a, 
+                                   excess_stock)
 
             # add to overall reward 
             reward += reward_ 
+
+            # update state for this distributor (new stock & new demand)
+            self.state[s] = np.array([new_stock, np.random.uniform(50, 150)])
         
         # compute cost of prod 
         reward += total_prod * self.prod_cost
@@ -128,16 +133,49 @@ class CustomEnvPOC(gym.Env):
         reward += max(total_prod - self.prod_max, 0) * self.excess_prod_cost
 
         reward = self._normalize_reward(reward)  # transform in a real reward
-        obs = self.state
+        self.obs = self._state_to_obs(self.state)
         self.step_count += 1
 
-        return obs, reward, self.step_count == self.max_steps
+        return self.obs, reward, self.step_count == self.max_steps
     
     def _normalize_reward(self, reward):
         """
-        In the future, neeed to normalize the reward
+        In the future, neeed to normalize the reward. Multiplication by -1 in order 
+        to have a cost instead of a reaward. 
         """
         return - reward
+    
+    def _state_to_obs(self, state):
+        """
+        Noise is added to state corresonding to a non-perfect forecast of next day 
+        consumption. 
+        """
+        obs = state.copy()
+        for s, v in state.items():
+            rand = np.array([0, np.random.normal(0, 5)])
+            obs[s] = v + rand
+        return obs
+    
+    def _reward(self, supplier:dict, stock, demand_loss, nb, excess):
+        """
+        Function to compute reward associated to exactly one distrib
+        """
+        # initialize reward
+        reward_ = 0
+
+        # add stock cost
+        reward_ += stock * supplier.get("stock_cost")  
+
+        # add effect of sells lost
+        reward_ += demand_loss * supplier.get("lost_sell")  
+
+        # add cost of transporting nb products
+        reward_ += supplier.get("transport_cost")(nb)  
+
+        # pay excess of stock 
+        reward_ += excess * self.excess_stock_cost 
+
+        return reward_      
 
 
 def test0():
@@ -153,7 +191,7 @@ def test0():
         "stock_max": 200, 
         "stock_cost": 3,
         "lost_sell": 5, 
-        "transport_cost": 1, 
+        "transport_cost": lambda x: 10 * (x // 10 + 1), 
         "sell_price": 0
     }, 
     "distrib_2": {
@@ -161,24 +199,27 @@ def test0():
         "stock_max": 200, 
         "stock_cost": 3,
         "lost_sell": 5, 
-        "transport_cost": 1, 
+        "transport_cost": lambda x: 10 * (x // 10 + 1), 
         "sell_price": 0
     }  
-    }
-    
-    # define dumb agent action 
-    my_agent = {
-        key: 100
-        for key in suppliers.keys()
     }
 
     env = CustomEnvPOC(suppliers=suppliers)
     initial_state = env.reset()
     print("Initial state: ", initial_state)
 
-    for _ in range(10):
+    for _ in range(5):
+
+        # define dumb agent action 
+        my_agent = {
+            key: 100
+            for key in suppliers.keys()
+        }
+        print("Actions: ", my_agent)
         obs, r, _ = env.step(my_agent)
-        print(obs, r, _)
+        print("Obs: ", obs, r, _)
+        print("State: ", env.state)
+        print("\n")
 
 
 
