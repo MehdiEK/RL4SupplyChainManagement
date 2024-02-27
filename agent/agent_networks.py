@@ -56,3 +56,23 @@ class PolicyNetwork(nn.Module):
         z = (action - mean) / std
         log_prob = -0.5 * z.pow(2) - log_std - 0.5 * np.log(2 * np.pi)
         return log_prob.sum(dim=-1)
+ 
+
+class ValueNetwork(nn.Module):
+    def __init__(self, input_size):
+        """
+        Initialization of value network. 
+
+        :params input_size: int 
+            Input shape, basically dimension of observation space.
+        """
+        super(ValueNetwork, self).__init__()
+        self.layer1 = nn.Linear(input_size, 32)
+        self.layer2 = nn.Linear(32, 32)
+        self.output = nn.Linear(32, 1)
+
+    def forward(self, state):
+        x = F.relu(self.layer1(state))
+        x = F.relu(self.layer2(x))
+        value = self.output(x)
+        return value
