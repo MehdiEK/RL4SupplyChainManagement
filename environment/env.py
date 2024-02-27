@@ -12,7 +12,7 @@ import gym
 from gym.spaces import Box, Dict
 
 
-class CustomEnvPOC(gym.Env):
+class SupplyChainPOC(gym.Env):
 
     def __init__(self, suppliers: dict):
         """
@@ -77,7 +77,7 @@ class CustomEnvPOC(gym.Env):
         self.obs = initial_obs
         self.state = initial_state
 
-        return initial_obs, 
+        return initial_obs, initial_state
 
 
     def step(self, action: dict):
@@ -92,6 +92,9 @@ class CustomEnvPOC(gym.Env):
 
         # get aciton for each supplier 
         for s, a in action.items():
+
+            if a < 0:
+                raise ValueError("Production cannot be negative")
 
             # add to total prod
             total_prod += a
@@ -204,20 +207,20 @@ def test0():
     }  
     }
 
-    env = CustomEnvPOC(suppliers=suppliers)
-    initial_state = env.reset()
-    print("Initial state: ", initial_state)
+    env = SupplyChainPOC(suppliers=suppliers)
+    obs, state = env.reset()
+    print("Initial state: ", state)
 
     for _ in range(5):
 
         # define dumb agent action 
         my_agent = {
-            key: 100
+            key: max(obs.get(key)[1] - obs.get(key)[0], 0)
             for key in suppliers.keys()
         }
         print("Actions: ", my_agent)
         obs, r, _ = env.step(my_agent)
-        print("Obs: ", obs, r, _)
+        print("Obs: ", obs, r)
         print("State: ", env.state)
         print("\n")
 
