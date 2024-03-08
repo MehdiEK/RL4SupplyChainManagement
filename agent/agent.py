@@ -2,7 +2,7 @@
 Main file for creating a RL agent. 
 
 Creation date: 24/02/2024
-Last modification: 28/02/024
+Last modification: 08/03/2024
 By: Mehdi EL KANSOULI 
 """
 import torch 
@@ -104,6 +104,27 @@ class PPOAgent(object):
         action = self._action_to_dict(action_)
 
         return action 
+    
+    def get_probs(self, obs, action):
+        """
+        Get probability of an action given that the agent is in 
+        a state observed as obs.
+
+        :params obs: gym Dict 
+            Observation state 
+        :params action: gym Dict 
+            Action take given obs
+        
+            :return float
+        """
+        action_ = self._handle_action_dict(action)
+        obs_ = self._handle_obs_dict(obs)
+
+        mean, log_std = self.policy_function(obs_)
+        prob = self.policy_function.log_prob(mean, log_std, action_)
+
+        return prob
+
 
     def _handle_obs_dict(self, obs):
         """
@@ -119,7 +140,7 @@ class PPOAgent(object):
 
     def _handle_action_dict(self, action):
         """
-        Function to transform obs given as a dictionaries to tensor usable by
+        Function to transform action given as a dictionaries to tensor usable by
         the neural networks.
 
         :params action: dict
@@ -212,6 +233,8 @@ class PPOAgent(object):
         value_loss.backward()
         self.policy_opt.step()
         self.value_opt.step()
+
+        return self
 
         
 

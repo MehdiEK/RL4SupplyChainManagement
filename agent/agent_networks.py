@@ -3,12 +3,11 @@ File containing neurals networks used by the PPO agent in
 order to estimate value function and policy
 
 Creation date: 27/02/2024
-Last modif: 27/02/2024
+Last modif: 08/03/2024
 By: Mehdi 
 """
 import torch
 import torch.nn as nn
-import torch.optim as optim
 import torch.nn.functional as F
 import numpy as np
 
