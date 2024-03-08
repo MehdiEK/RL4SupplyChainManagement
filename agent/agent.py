@@ -8,6 +8,7 @@ By: Mehdi EL KANSOULI
 import torch 
 import torch.nn.functional as F
 
+from gym.spaces import Dict
 from agent_networks import ValueNetwork, PolicyNetwork
 
 
@@ -42,8 +43,8 @@ class BasicAgent(object):
 
 class PPOAgent(object):
 
-    def __init__(self, obs_dim, action_dim, gamma=0.99, lr_policy=1e-3, 
-                 lr_value=1e-3, epsilon=0.2):
+    def __init__(self, suppliers:dict, obs_dim:int,  gamma=0.99, 
+                 lr_policy=1e-3, lr_value=1e-3, epsilon=0.2):
         """
         Initialization/deifnition of the ppo agent. 
 
@@ -62,12 +63,13 @@ class PPOAgent(object):
 
         """
         # dimension of the pb 
+        self.suppliers = list(suppliers.keys())
         self.obs_dim = obs_dim
-        self.aciton_dim = action_dim
+        self.action_dim = len(suppliers.keys())
 
         # define vlaue and policy networks
         self.value_function = ValueNetwork(obs_dim)
-        self.policy_function = PolicyNetwork(obs_dim, action_dim)
+        self.policy_function = PolicyNetwork(obs_dim, self.action_dim)
 
         # define parameters for training the agent. 
         self.gamma = gamma  # discounting factor
@@ -131,14 +133,22 @@ class PPOAgent(object):
         Function to transform obs given as a dictionaries to tensor usable by
         the neural networks.
 
-        :params obs: dict
+        :params obs: list of dict
             Dict from env descrbing current obs state. 
 
         :return tensor
         """
-        pass
+        # if single create a list of one element
+        if not isinstance(obs, list):
+            obs = [obs]
+        
+        obs_lists = [list(o.values()) for o in obs]
+        obs_tensor = torch.Tensor(obs_lists)
 
-    def _handle_action_dict(self, action):
+        return obs_tensor
+        
+
+    def _handle_action_dict(self, actions):
         """
         Function to transform action given as a dictionaries to tensor usable by
         the neural networks.
@@ -148,7 +158,14 @@ class PPOAgent(object):
 
         :return tensor
         """
-        pass
+        # if single create a list of one element
+        if not isinstance(actions, list):
+            actions = [actions]
+        
+        actions_list = [list(action.values()) for action in actions]
+        actions_tensor = torch.Tensor(actions_list)
+
+        return actions_tensor
 
     def _action_to_dict(self, action):
         """
@@ -156,11 +173,17 @@ class PPOAgent(object):
         tensor to a dict usable for the env. 
 
         :params action: tensor
-            Tensor, output from policy network sample. 
+            Tensor, output from policy network sample. Must be exactly one 
+            action 
         
         :return dict.
         """
-        pass
+        actions_dict = {}
+        for i in range(self.action_dim):
+            actions_dict[self.suppliers[i]] = action[i]
+        
+        action_ = Dict(actions_dict)
+        return action_
 
     def _cumulative_reward(self, rewards):
         """
