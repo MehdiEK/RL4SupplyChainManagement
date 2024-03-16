@@ -2,14 +2,14 @@
 Main file for creating a RL agent. 
 
 Creation date: 24/02/2024
-Last modification: 08/03/2024
+Last modification: 15/03/2024
 By: Mehdi EL KANSOULI 
 """
 import torch 
 import torch.nn.functional as F
+import torch.nn.utils as nn_utils
 
-from gym.spaces import Dict
-from agent_networks import ValueNetwork, PolicyNetwork
+from agent.agent_networks import ValueNetwork, PolicyNetwork
 
 
 class BasicAgent(object):
@@ -40,11 +40,16 @@ class BasicAgent(object):
 
         return actions 
     
+    def inference(self, observation):
+        """
+        """
+        return self.get_action(observation)
 
 class PPOAgent(object):
 
-    def __init__(self, suppliers:dict, obs_dim:int,  gamma=0.99, 
-                 lr_policy=1e-3, lr_value=1e-3, epsilon=0.2):
+    def __init__(self, suppliers:dict, obs_dim:int,  gamma=0.95, 
+                 lr_policy=1e-3, lr_value=1e-3, epsilon=0.2, 
+                 max_action=250):
         """
         Initialization/deifnition of the ppo agent. 
 
@@ -52,7 +57,7 @@ class PPOAgent(object):
             Dimension of the observation space.
         :params action_dim: int 
             Dimension of the action space. 
-        :params gamma: float, default=0.99
+        :params gamma: float, default=0.5
             Discounted factor
         :params lr_policy: float, default=1e-3
             Learning rate for training policy network 
@@ -69,19 +74,95 @@ class PPOAgent(object):
 
         # define vlaue and policy networks
         self.value_function = ValueNetwork(obs_dim)
-        self.policy_function = PolicyNetwork(obs_dim, self.action_dim)
+        self.policy_function = PolicyNetwork(obs_dim, 
+                                             self.action_dim, 
+                                             max_mean=max_action)
 
         # define parameters for training the agent. 
-        self.gamma = gamma  # discounting factor
+        self.gamma = gamma  # discount factor
         self.epsilon = epsilon  # clipping factor
         self.lr_policy = lr_policy  
         self.lr_value = lr_value
 
         # define optimizers
         self.policy_opt = torch.optim.Adam(self.policy_function.parameters(), 
-                                            lr=self.lr_policy)
+                                           lr=self.lr_policy)
         self.value_opt = torch.optim.Adam(self.value_function.parameters(), 
                                             lr=self.lr_value)
+
+    def _handle_obs_dict(self, obs):
+        """
+        Function to transform obs given as a dictionaries to tensor usable by
+        the neural networks.
+
+        :params obs: list of dict
+            Dict from env descrbing current obs state. 
+
+        :return tensor
+        """
+        # if single create a list of one element
+        if not isinstance(obs, list):
+            obs = [obs]
+        
+        obs_lists = []
+        for o in obs: 
+            pivot_list = []
+            for val in o.values():
+                pivot_list = pivot_list + list(val)
+            obs_lists.append(pivot_list)
+
+        obs_tensor = torch.Tensor(obs_lists)
+
+        return obs_tensor
+
+    def _handle_action_dict(self, actions):
+        """
+        Function to transform action given as a dictionaries to tensor usable by
+        the neural networks.
+
+        :params action: dict
+            Dict from env descrbing action. 
+
+        :return tensor
+        """
+        # if single create a list of one element
+        if not isinstance(actions, list):
+            actions = [actions]
+
+        # actions_list = [list(action.values()) for action in actions]
+
+        actions_lists = []
+        for action in actions: 
+            pivot_list = []
+            for val in action.values():
+                pivot_list.append(val)
+            actions_lists.append(pivot_list)
+
+        actions_tensor = torch.Tensor(actions_lists)
+
+        return actions_tensor
+
+    def _action_to_dict(self, action):
+        """
+        Function that transforms the action output from the net given as a 
+        tensor to a dict usable for the env. 
+
+        :params action: tensor
+            Tensor, output from policy network sample. Must be exactly one 
+            action 
+        
+        :return dict.
+        """
+        # get only the 1-st dim
+        action = action.squeeze()
+
+        # create a dict
+        actions_dict = {}
+        for i in range(self.action_dim):
+            actions_dict[self.suppliers[i]] = action[i].item()
+        
+        action_ = actions_dict  # Dict(actions_dict)
+        return action_
 
     def get_action(self, obs):
         """
@@ -99,8 +180,8 @@ class PPOAgent(object):
         obs_tensor = self._handle_obs_dict(obs)
 
         # sample an action.
-        mean, log_std = self.policy_function(obs_tensor)
-        action_ = self.policy_function.sample(mean, log_std)
+        mean, std = self.policy_function(obs_tensor)
+        action_ = self.policy_function.sample(mean, std)
 
         # tf action into a usable dict for the env
         action = self._action_to_dict(action_)
@@ -122,70 +203,12 @@ class PPOAgent(object):
         action_ = self._handle_action_dict(action)
         obs_ = self._handle_obs_dict(obs)
 
-        mean, log_std = self.policy_function(obs_)
-        prob = self.policy_function.log_prob(mean, log_std, action_)
+        mean, std = self.policy_function(obs_)
+        prob = self.policy_function.log_prob(mean, std, action_)
 
         return prob
 
-
-    def _handle_obs_dict(self, obs):
-        """
-        Function to transform obs given as a dictionaries to tensor usable by
-        the neural networks.
-
-        :params obs: list of dict
-            Dict from env descrbing current obs state. 
-
-        :return tensor
-        """
-        # if single create a list of one element
-        if not isinstance(obs, list):
-            obs = [obs]
-        
-        obs_lists = [list(o.values()) for o in obs]
-        obs_tensor = torch.Tensor(obs_lists)
-
-        return obs_tensor
-        
-
-    def _handle_action_dict(self, actions):
-        """
-        Function to transform action given as a dictionaries to tensor usable by
-        the neural networks.
-
-        :params action: dict
-            Dict from env descrbing action. 
-
-        :return tensor
-        """
-        # if single create a list of one element
-        if not isinstance(actions, list):
-            actions = [actions]
-        
-        actions_list = [list(action.values()) for action in actions]
-        actions_tensor = torch.Tensor(actions_list)
-
-        return actions_tensor
-
-    def _action_to_dict(self, action):
-        """
-        Function that transforms the action output from the net given as a 
-        tensor to a dict usable for the env. 
-
-        :params action: tensor
-            Tensor, output from policy network sample. Must be exactly one 
-            action 
-        
-        :return dict.
-        """
-        actions_dict = {}
-        for i in range(self.action_dim):
-            actions_dict[self.suppliers[i]] = action[i]
-        
-        action_ = Dict(actions_dict)
-        return action_
-
-    def _cumulative_reward(self, rewards):
+    def _cumulative_reward(self, rewards, last_value):
         """
         Function used to compute the cumulative rewards given a list of rewards
         corresponding to one episode. This function returns a list as it 
@@ -193,13 +216,16 @@ class PPOAgent(object):
 
         :params rewards: list
 
+        :params last_value: float
+            Value function evaluation on last obs
+
         :return list
             Discounted sum of rewards. 
         """
         # initialization 
-        n = len(rewards)
+        n = len(rewards) 
+        G = last_value
         disc_rewards = [0] * n
-        G = 0
 
         # compute discounted reward. 
         for i, reward in enumerate(rewards[::-1]):
@@ -207,10 +233,8 @@ class PPOAgent(object):
             G += reward
             disc_rewards[n-i-1] = G
 
-        G = torch.FloatTensor(G)
-        return G
-
-
+        disc_rewards = torch.tensor(disc_rewards, dtype=torch.float32)
+        return disc_rewards
 
     def train(self, obs, actions, rewards, old_probs):
         """
@@ -228,37 +252,60 @@ class PPOAgent(object):
 
         :return nothing
         """
-        # convert all to tensor and get cumulative reward.
-        obs_ = self._handle_obs_dict(obs)
-        actions_ = self._handle_action_dict(actions)
-        old_probs = torch.TensorFloat(old_probs)
-        disc_rewards = self._cumulative_reward(rewards)
+        with torch.no_grad():
+            # convert all to tensor and get cumulative reward.
+            obs_ = self._handle_obs_dict(obs)
+            actions_ = self._handle_action_dict(actions)
+            old_probs = torch.Tensor(old_probs)
 
-        # compute advatange /!\ must think about the estimator of adv
-        adv = disc_rewards - self.value_function(obs_).squeeze()
+            # set last reward equal to the evaluation of V
+            disc_rewards = self._cumulative_reward(
+                rewards, 
+                self.value_function(obs_[-1]).squeeze()                                      
+            )
+
+            # compute advatange /!\ must think about the estimator of adv
+        
+        adv = disc_rewards - self.value_function(obs_[:-1]).squeeze()
+        # adv = (adv - torch.mean(adv)) / (torch.std(adv) + 1e-8)
 
         # compute ppo loss 
-        mean, log_std = self.policy_function(obs_)
-        new_probs = self.policy_function.log_prob(mean, log_std, actions_)
+        mean, std = self.policy_function(obs_[:-1])
+        new_probs = self.policy_function.log_prob(mean, std, actions_)
         ratio = torch.exp(new_probs - old_probs)
-        pivot1 = ratio * adv
-        pivot2 = torch.clamp(ratio, 1 - self.epsilon, 1 + self.epsilon) * adv
-        ppo_loss = -torch.min(pivot1, pivot2).mean()
+        pivot1 = torch.multiply(ratio, adv)
+        pivot2 = torch.multiply(torch.clamp(ratio, 1 - self.epsilon, 1 + self.epsilon), adv)
+        ppo_loss = - torch.mean(torch.min(pivot1, pivot2))
 
         # compute value loss
-        value_loss = F.mse_loss(self.value_function(obs_).squeeze(), 
+        value_loss = F.mse_loss(self.value_function(obs_[:-1]).squeeze(), 
                                 disc_rewards)
+
+        # print("\nPPO loss: ", ppo_loss)
+        # print("Value loss: ", value_loss)
 
         # train nn
         self.policy_opt.zero_grad()
         self.value_opt.zero_grad()
         ppo_loss.backward()
         value_loss.backward()
+
+        max_norm = 1.0  # Define the maximum norm value for clipping
+        torch.nn.utils.clip_grad_norm_(self.policy_function.parameters(), max_norm)
+
         self.policy_opt.step()
         self.value_opt.step()
 
-        return self
+        # for name, param in self.policy_function.named_parameters():
+        #     print(name, param.grad)
 
+    def inference(self, obs):
+        """
+        """
+        obs_ = self._handle_obs_dict(obs)
+        action_ = self.policy_function.inference(obs_)
+        action = self._action_to_dict(action_)
+        return action
         
 
 
