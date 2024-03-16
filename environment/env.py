@@ -25,9 +25,9 @@ class SupplyChainPOC(gym.Env):
 
         # info on factory 
         self.prod_max = 500
-        self.prod_cost = 1.
+        self.prod_cost = 3.
         self.excess_prod_cost = 2.
-        self.excess_stock_cost = 3.
+        self.excess_stock_cost = 10.
         self.sell_price = 10.
 
         # info on supliers 
@@ -223,10 +223,10 @@ class SupplyChainV0(gym.Env):
             sotck_max, stock_cost, lost_sell, transport_cost, sell_price.
         """
         # info on factory 
-        self.prod_max = 500
+        self.prod_max = 250
         self.prod_cost = 1.
         self.excess_prod_cost = 2.
-        self.excess_stock_cost = 3.
+        self.excess_stock_cost = 5.
 
         # info on supliers 
         self.suppliers = suppliers
@@ -351,7 +351,7 @@ class SupplyChainV0(gym.Env):
         obs = state.copy()
         for s, v in state.items():
             stock, next_cons = v
-            forecast = np.clip(next_cons + np.random.normal(0, 7), 50, 150)
+            forecast = np.clip(next_cons + np.random.normal(0, 10), 50, 150)
             obs[s] = np.array([stock, forecast])
         return obs
     
