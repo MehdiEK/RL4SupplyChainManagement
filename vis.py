@@ -33,11 +33,11 @@ def create_adaptive_colored_grid_1(results, factory_char, red , blue, suppliers)
             # Add a horizontal line to the top and bottom
             ax.axhline(y=0, color='black', linewidth=2)
             ax.axhline(y=1, color='black', linewidth=2)
-
+            color_profit = 'green' if round(results['profits'][i]) > 0 else 'red'
 
             # Factory text
             ax.text(0.5, 0.9, 'Factory', color='black', ha='center', va='center', fontsize=14, fontweight='bold')
-            ax.text(0.5, 0.7, factory_profit, color='green', ha='center', va='center', fontsize=14, fontweight='bold')
+            ax.text(0.5, 0.7, factory_profit, color=color_profit, ha='center', va='center', fontsize=14, fontweight='bold')
             ax.text(0.5, 0.4, factory_char, color='black', ha='center', va='center', fontsize=14, fontweight='bold')
 
 
@@ -92,11 +92,10 @@ def create_adaptive_colored_grid_2(results, factory_char, red , blue, suppliers)
             fig, ax = plt.subplots(figsize=(12, 12))
             ax.imshow(grid, extent=[0, 3, 0, 3])
 
-          
-       
+            color_profit = 'green' if round(results['profits'][i]) > 0 else 'red'
             # Factory text
             ax.text(0.5, 1.9, 'Factory', color='black', ha='center', va='center', fontsize=14, fontweight='bold')
-            ax.text(0.5, 1.7, factory_profit, color='green', ha='center', va='center', fontsize=14, fontweight='bold')
+            ax.text(0.5, 1.7, factory_profit, color=color_profit , ha='center', va='center', fontsize=14, fontweight='bold')
             ax.text(0.5, 1.4, factory_char, color='black', ha='center', va='center', fontsize=14, fontweight='bold')
 
              #stock text color 

@@ -1,1 +1,7 @@
-Testnb.ipynb
+
+# Ignore all files and directories
+*
+
+# Except for specific files
+!Testnb.ipynb
+
