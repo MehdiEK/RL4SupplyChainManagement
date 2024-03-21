@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 from environment.env import SupplyChainPOC, SupplyChainV0
 from agent.agent import BasicAgent, PPOAgent
 from agent_trainer.main_trainer import PPOTrainer, normalize_obs
+from vis import  visualization_factory
 
 
 def inference(env, agent, episode_length, suppliers):
@@ -163,13 +164,14 @@ def main_v2(nb_episodes=100, episode_length=1000, nb_epochs=1):
     print("\nReward: ", results.get("rewards"))
     print("\nProfits: ", results.get("profits"))
 
-
+    visualization_factory(env, results, suppliers)
     # test dumb agent
     # define agent and env 
     basic_agent = BasicAgent(suppliers)
 
     # perform an episode
     results = inference(env, basic_agent, episode_length=5, suppliers=suppliers)
+    
     profit = np.sum(results.get("profits"))
 
     print("\nDumb agent profit: ", profit)
