@@ -1,15 +1,24 @@
 """
 Main file to run. 
 
-Command: $ python main.py
+The main file enables to run training of PPO and D-DQN agent and can return
+the daily profit. 
+
+For human-level agent, please run: 
+    $ python main.py -human
+For PPO training and evaluation:
+    $ python main.py -PPO
+For D-DQN: 
+    $ python main.py -DQN
 
 Creation date: 27/02/2024
-Last modif: 27/02/2024
+Last modif: 05/04/2024
 By: Mehdi 
 """
 
 import numpy as np 
 import matplotlib.pyplot as plt
+import argparse
 
 from environment.env import SupplyChainPOC, SupplyChainV0
 from agent.agent import BasicAgent, PPOAgent
@@ -20,7 +29,7 @@ from agent_trainer.utils import *
 from agent.DQN import DQN, ReplayBuffer
 
 
-def inference(env, agent, episode_length, suppliers):
+def inference(env, agent, episode_length, suppliers, normalize=False):
     """
     Inference.
 
@@ -47,7 +56,10 @@ def inference(env, agent, episode_length, suppliers):
     for i in range(episode_length):
 
         # get action from the agent
-        action = agent.inference(normalize_obs(obs, suppliers))
+        if normalize:
+            action = agent.inference(normalize_obs(obs, suppliers))
+        else:
+            action = agent.inference(obs)
 
         # perform one step 
         new_obs, reward, profit = env.step(action)
@@ -70,27 +82,27 @@ def inference(env, agent, episode_length, suppliers):
     return results
 
 
-def main():
+def main_human(episode_length=100):
     """
-    In developpement,
+    Main function to run for a Human level agent. 
     """
     # define problem
     suppliers = {
     "distrib_1": {
         "demand": 100, 
         "stock_max": 200, 
-        "stock_cost": 3,
-        "lost_sell": 5, 
-        "transport_cost": lambda x: 10 * (x // 10 + 1), 
-        "sell_price": 5
+        "stock_cost": 3.,
+        "lost_sell": 3., 
+        "transport_cost": lambda x: .5 * x, 
+        "sell_price": 10.
     }, 
     "distrib_2": {
         "demand": 100, 
         "stock_max": 200, 
-        "stock_cost": 3,
-        "lost_sell": 5, 
-        "transport_cost": lambda x: 10 * (x // 10 + 1), 
-        "sell_price": 5
+        "stock_cost": 3.,
+        "lost_sell": 3., 
+        "transport_cost": lambda x: .5 * x, 
+        "sell_price": 10.
     }  
     }
 
@@ -99,16 +111,16 @@ def main():
     env = SupplyChainV0(suppliers)
 
     # perform an episode
-    results = inference(env, agent, suppliers)
+    results = inference(env, agent, episode_length, suppliers)
     rewards = results.get("rewards")
     avg_profit = np.mean(results.get("profits"))
 
-    print("Rewards: ", rewards)
-    print("Profits: ", results.get("profits"))
-    print("Avg profit: ", avg_profit)
+    # print("Rewards: ", rewards)
+    # print("Daily profits: ", results.get("profits"))
+    print("\nAvg daily profit: ", avg_profit)
 
 
-def main_v2(nb_episodes=100, episode_length=100, nb_epochs=1):
+def main_ppo(nb_episodes=10000, episode_length=100, nb_epochs=1):
     """
     """
     # define problem
@@ -119,7 +131,7 @@ def main_v2(nb_episodes=100, episode_length=100, nb_epochs=1):
         "stock_cost": 3.,
         "lost_sell": 3., 
         "transport_cost": lambda x: .5 * x, 
-        "sell_price": 5.
+        "sell_price": 10.
     }, 
     "distrib_2": {
         "demand": 100, 
@@ -127,7 +139,7 @@ def main_v2(nb_episodes=100, episode_length=100, nb_epochs=1):
         "stock_cost": 3.,
         "lost_sell": 3., 
         "transport_cost": lambda x: .5 * x, 
-        "sell_price": 5.
+        "sell_price": 10.
     }  
     }
 
@@ -141,18 +153,6 @@ def main_v2(nb_episodes=100, episode_length=100, nb_epochs=1):
     # define env 
     env = SupplyChainV0(suppliers)
 
-    results = inference(
-        env, 
-        agent, 
-        episode_length=episode_length, 
-        suppliers=suppliers
-    )
-
-    print("Actions: ", results.get("actions"))
-    print("\nObservations: ", results.get("obs"))
-    print("\nReward: ", results.get("rewards"))
-    print("\nProfits: ", results.get("profits"))
-
     rewards = PPOTrainer(
         agent=agent, 
         env=env, 
@@ -165,25 +165,20 @@ def main_v2(nb_episodes=100, episode_length=100, nb_epochs=1):
     plt.plot(np.arange(len(rewards)), rewards)
     plt.show()
 
-    # print("rewards: ", rewards)
-    # perform an episode
-    results = inference(env, agent, episode_length=5, suppliers=suppliers)
-    print("Actions: ", results.get("actions"))
-    print("\nObservations: ", results.get("obs"))
-    print("\nReward: ", results.get("rewards"))
-    print("\nProfits: ", results.get("profits"))
+    # perform a test episode
+    results = inference(
+        env, 
+        agent, 
+        episode_length=episode_length, 
+        suppliers=suppliers, 
+        normalize=True
+    )
+
+    # print("Rewards: ", rewards)
+    # print("Daily profits: ", results.get("profits"))
+    print("\nAvg daily profit: ", np.mean(results.get("profits")))
 
     visualization_factory(env, results, suppliers)
-    # test dumb agent
-    # define agent and env 
-    basic_agent = BasicAgent(suppliers)
-
-    # perform an episode
-    results = inference(env, basic_agent, episode_length=5, suppliers=suppliers)
-    
-    profit = np.sum(results.get("profits"))
-
-    print("\nDumb agent profit: ", profit)
 
 
 def mainDQN(n_distributors, n_actions=6):
@@ -195,7 +190,7 @@ def mainDQN(n_distributors, n_actions=6):
         "stock_cost": 3.,
         "lost_sell": 3., 
         "transport_cost": lambda x: 0.5*x, 
-        "sell_price": 5.
+        "sell_price": 10.
     }
     for k in range(n_distributors)}
 
@@ -227,21 +222,47 @@ def mainDQN(n_distributors, n_actions=6):
         n_distributors=n_distributors,
         episode_length=100,
         gamma=0.9, 
-        n_steps=100000, 
+        n_steps=10000, 
         tau=0.6,
-        batch_size=32)
+        batch_size=32
+    )
     
-    return trained_agent, losses, rewards
+    # return trained_agent, losses, rewards
+    profits = np.array(rewards) * env.prod_cost * n_distributors
+    
+    print("\nAvg daily profit: ", np.mean(profits))
 
+def main():
     
+    parser = argparse.ArgumentParser(description='Your script description here')
+
+    # Add arguments
+    parser.add_argument('-human', 
+                        action='store_true', 
+                        help='Inference of human based model')
+    parser.add_argument('-PPO', 
+                        action='store_true', 
+                        help='Train and inference of PPO')
+    parser.add_argument('-DQN', 
+                        action='store_true', 
+                        help='Train and inference of DQN')
+    
+
+    # Parse the command-line arguments
+    args = parser.parse_args()
+
+    if args.human:
+        main_human()
+    elif args.PPO:
+        main_ppo()
+    elif args.DQN:
+        mainDQN(n_distributors=2)
+    else:
+        raise ValueError("This method is not implemented yet")
 
 
 if __name__ == "__main__":
-    main_v2(
-        nb_episodes=100, 
-        episode_length=50, 
-        nb_epochs=1
-    )
+    main()
 
 
 
