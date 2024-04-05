@@ -9,12 +9,15 @@ By: Mehdi
 """
 
 import numpy as np 
-import matplotlib.pyplot as plt 
+import matplotlib.pyplot as plt
 
 from environment.env import SupplyChainPOC, SupplyChainV0
 from agent.agent import BasicAgent, PPOAgent
-from agent_trainer.main_trainer import PPOTrainer, normalize_obs
+from agent_trainer.main_trainer import PPOTrainer, normalize_obs, training_dqn
 from vis import  visualization_factory
+
+from agent_trainer.utils import *
+from agent.DQN import DQN, ReplayBuffer
 
 
 def inference(env, agent, episode_length, suppliers):
@@ -181,6 +184,57 @@ def main_v2(nb_episodes=100, episode_length=100, nb_epochs=1):
     profit = np.sum(results.get("profits"))
 
     print("\nDumb agent profit: ", profit)
+
+
+def mainDQN(n_distributors, n_actions=6):
+
+    suppliers = {
+        'distrib_'+str(k+1): {
+        "demand": 100, 
+        "stock_max": 200, 
+        "stock_cost": 3.,
+        "lost_sell": 3., 
+        "transport_cost": lambda x: 0.5*x, 
+        "sell_price": 5.
+    }
+    for k in range(n_distributors)}
+
+    action_max_value = 200
+    single_possible_actions = [int(action_max_value/(n_actions-1))*i for i in range(n_actions)]
+
+    env = SupplyChainV0(suppliers, 125*n_distributors)
+    env_eval = SupplyChainV0(suppliers, 125*n_distributors)
+    
+    replay_buffer_capacity = 1e6
+    D = ReplayBuffer(replay_buffer_capacity)
+
+    # network parameters 
+    obs_space_dim = n_distributors*2
+    action_space_size = n_actions**n_distributors
+    hidden_dim = 256
+
+    model = DQN(action_space_dim=action_space_size, obs_space_dim=obs_space_dim, n_layers=2, layer_size=hidden_dim, learning_rate=3e-4)
+    target_network = DQN(action_space_dim=action_space_size, obs_space_dim=obs_space_dim, n_layers=2, layer_size=hidden_dim, learning_rate=3e-4)
+    target_network.load_state_dict(model.state_dict())
+
+    trained_agent, losses, rewards = training_dqn(
+        env=env,
+        env_eval=env_eval,
+        model=model,
+        target_network=target_network,
+        D=D,
+        actions_discrete=single_possible_actions, 
+        n_distributors=n_distributors,
+        episode_length=100,
+        gamma=0.9, 
+        n_steps=100000, 
+        tau=0.6,
+        batch_size=32)
+    
+    return trained_agent, losses, rewards
+
+    
+
 
 if __name__ == "__main__":
     main_v2(
