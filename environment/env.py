@@ -7,14 +7,14 @@ By: Mehdi EL KANSOULI
 """
 
 import numpy as np 
-import gym 
+import gymnasium as gym
 
-from gym.spaces import Box, Dict
+from gymnasium.spaces import Box, Dict
 
 
 class SupplyChainPOC(gym.Env):
 
-    def __init__(self, suppliers: dict):
+    def __init__(self, suppliers: dict, prod_max=500):
         """
         Initialization of the environment.
 
@@ -24,7 +24,7 @@ class SupplyChainPOC(gym.Env):
         """
 
         # info on factory 
-        self.prod_max = 500
+        self.prod_max = prod_max
         self.prod_cost = 3.
         self.excess_prod_cost = 2.
         self.excess_stock_cost = 10.
@@ -214,7 +214,7 @@ class SupplyChainPOC(gym.Env):
 
 class SupplyChainV0(gym.Env):
     
-    def __init__(self, suppliers: dict):
+    def __init__(self, suppliers: dict, prod_max=250, noise=10):
         """
         Initialization of the environment.
 
@@ -223,7 +223,7 @@ class SupplyChainV0(gym.Env):
             sotck_max, stock_cost, lost_sell, transport_cost, sell_price.
         """
         # info on factory 
-        self.prod_max = 250
+        self.prod_max = prod_max
         self.prod_cost = 1.
         self.excess_prod_cost = 2.
         self.excess_stock_cost = 5.
@@ -250,6 +250,7 @@ class SupplyChainV0(gym.Env):
 
         # define observation state 
         self.observation_space = self.state_space
+        self.noise = noise
 
     def reset(self):
         """
@@ -351,7 +352,7 @@ class SupplyChainV0(gym.Env):
         obs = state.copy()
         for s, v in state.items():
             stock, next_cons = v
-            forecast = np.clip(next_cons + np.random.normal(0, 10), 50, 150)
+            forecast = np.clip(next_cons + np.random.normal(0, self.noise), 50, 150)
             obs[s] = np.array([stock, forecast])
         return obs
     
