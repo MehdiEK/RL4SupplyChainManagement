@@ -18,7 +18,7 @@ To this end, we have implemented our own environment capable of modeling the pro
 
 ## Implementation
 
-TO DO 
+In this section, please read main.py file (+ doc on top) and main_experiments.ipynb for details on our implementation of experiments (+ see report).
 
 ## Installation
 
