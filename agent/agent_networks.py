@@ -75,9 +75,6 @@ class PolicyNetwork(nn.Module):
         :return torch.tensor
         """
         z = torch.randn_like(std)
-        if np.random.random() < 0.01:
-            print("\nStandard deviation: ", std)
-            print("Mean: ", mean, "\n")
         action = torch.clamp(mean + std * z, 0, self.max_mean)
         return action
 
