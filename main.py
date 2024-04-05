@@ -105,7 +105,7 @@ def main():
     print("Avg profit: ", avg_profit)
 
 
-def main_v2(nb_episodes=100, episode_length=1000, nb_epochs=1):
+def main_v2(nb_episodes=100, episode_length=100, nb_epochs=1):
     """
     """
     # define problem
@@ -115,7 +115,7 @@ def main_v2(nb_episodes=100, episode_length=1000, nb_epochs=1):
         "stock_max": 200, 
         "stock_cost": 3.,
         "lost_sell": 3., 
-        "transport_cost": lambda x: 0., 
+        "transport_cost": lambda x: .5 * x, 
         "sell_price": 5.
     }, 
     "distrib_2": {
@@ -123,7 +123,7 @@ def main_v2(nb_episodes=100, episode_length=1000, nb_epochs=1):
         "stock_max": 200, 
         "stock_cost": 3.,
         "lost_sell": 3., 
-        "transport_cost": lambda x: 0., 
+        "transport_cost": lambda x: .5 * x, 
         "sell_price": 5.
     }  
     }
@@ -138,7 +138,13 @@ def main_v2(nb_episodes=100, episode_length=1000, nb_epochs=1):
     # define env 
     env = SupplyChainV0(suppliers)
 
-    results = inference(env, agent, episode_length=10, suppliers=suppliers)
+    results = inference(
+        env, 
+        agent, 
+        episode_length=episode_length, 
+        suppliers=suppliers
+    )
+
     print("Actions: ", results.get("actions"))
     print("\nObservations: ", results.get("obs"))
     print("\nReward: ", results.get("rewards"))
@@ -178,9 +184,9 @@ def main_v2(nb_episodes=100, episode_length=1000, nb_epochs=1):
 
 if __name__ == "__main__":
     main_v2(
-        nb_episodes=2000, 
+        nb_episodes=100, 
         episode_length=50, 
-        nb_epochs=10
+        nb_epochs=1
     )
 
 
