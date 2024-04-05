@@ -2,24 +2,23 @@
 Main file for creating a RL agent. 
 
 Creation date: 24/02/2024
-Last modification: 15/03/2024
+Last modification: 05/04/2024
 By: Mehdi EL KANSOULI 
 """
 import torch 
 import torch.nn.functional as F
-import torch.nn.utils as nn_utils
 
 from agent.agent_networks import ValueNetwork, PolicyNetwork
 
 
 class BasicAgent(object):
 
-    def __init__(self, suppliers):
+    def __init__(self, suppliers: dict):
         """
         Initialization of Basic Agent. 
 
-        :params env: gym env 
-            Environment modelizing the pb
+        :params suppliers: dict
+            Dictionary containing info on suppliers (resale sites)
         """
         self.suppliers = suppliers 
     
@@ -28,7 +27,7 @@ class BasicAgent(object):
         Policy of the basic agent. The agent return the difference between the
         forecast for the next day and the current stock. 
 
-        :params state: env.state object
+        :params observation: env.obs object
 
         :return dict 
             Dictionary of actions. 
@@ -42,6 +41,8 @@ class BasicAgent(object):
     
     def inference(self, observation):
         """
+        Just get action given an observation foloowing detemrnistic and simple 
+        policy 
         """
         return self.get_action(observation)
 
@@ -49,14 +50,14 @@ class PPOAgent(object):
 
     def __init__(self, suppliers:dict, obs_dim:int,  gamma=0.95, 
                  lr_policy=1e-3, lr_value=1e-3, epsilon=0.2, 
-                 max_action=250):
+                 max_action=250.):
         """
         Initialization/deifnition of the ppo agent. 
 
+        :params suppliers: dict
+            Dictionary containing info on suppliers (resale sites)
         :params obs_dim: int
             Dimension of the observation space.
-        :params action_dim: int 
-            Dimension of the action space. 
         :params gamma: float, default=0.5
             Discounted factor
         :params lr_policy: float, default=1e-3
@@ -65,7 +66,10 @@ class PPOAgent(object):
             Learning rate for training value network 
         :params epsilon: float, default=0.2
             Clipping factor (ppo algo parameter) 
-
+        :params max_action: float
+            Maximum quantity that the agent can send to a resale site. 
+            Note that this quantity is set arbitrarly and must be carefully 
+            chosen by the team.
         """
         # dimension of the pb 
         self.suppliers = list(suppliers.keys())
@@ -117,8 +121,8 @@ class PPOAgent(object):
 
     def _handle_action_dict(self, actions):
         """
-        Function to transform action given as a dictionaries to tensor usable by
-        the neural networks.
+        Function to transform action given as a dictionaries to tensor usable 
+        by the neural networks.
 
         :params action: dict
             Dict from env descrbing action. 
@@ -198,7 +202,8 @@ class PPOAgent(object):
         :params action: gym Dict 
             Action take given obs
         
-            :return float
+        :return torch.float
+            Return probability of taking an action 
         """
         action_ = self._handle_action_dict(action)
         obs_ = self._handle_obs_dict(obs)
@@ -239,11 +244,11 @@ class PPOAgent(object):
     def train(self, obs, actions, rewards, old_probs):
         """
         After collecting data (from an episode for example), this function 
-        aims to update.
+        aims to update the networks (both policy and value networks).
 
         :params obs: list of dict 
             List of all observation states stored. 
-        :params acitons: list of dict
+        :params actions: list of dict
             List of all actions taken. 
         :params rewards: list
             List of reward obtained at each step. 
@@ -274,15 +279,14 @@ class PPOAgent(object):
         new_probs = self.policy_function.log_prob(mean, std, actions_)
         ratio = torch.exp(new_probs - old_probs)
         pivot1 = torch.multiply(ratio, adv)
-        pivot2 = torch.multiply(torch.clamp(ratio, 1 - self.epsilon, 1 + self.epsilon), adv)
+        pivot2 = torch.multiply(torch.clamp(ratio, 1 - self.epsilon, 
+                                            1 + self.epsilon), 
+                                adv)
         ppo_loss = - torch.mean(torch.min(pivot1, pivot2))
 
         # compute value loss
         value_loss = F.mse_loss(self.value_function(obs_[:-1]).squeeze(), 
                                 disc_rewards)
-
-        # print("\nPPO loss: ", ppo_loss)
-        # print("Value loss: ", value_loss)
 
         # train nn
         self.policy_opt.zero_grad()
@@ -291,16 +295,22 @@ class PPOAgent(object):
         value_loss.backward()
 
         max_norm = 1.0  # Define the maximum norm value for clipping
-        torch.nn.utils.clip_grad_norm_(self.policy_function.parameters(), max_norm)
+        torch.nn.utils.clip_grad_norm_(self.policy_function.parameters(), 
+                                       max_norm)
 
         self.policy_opt.step()
         self.value_opt.step()
 
-        # for name, param in self.policy_function.named_parameters():
-        #     print(name, param.grad)
-
     def inference(self, obs):
         """
+        Function used for inference that directly predict an action given an obs. 
+
+        :params obs: gym dict 
+            Observation from the environment
+        
+        :return gym dict 
+            A dictionary compatible with the env corresponding to actions chosen 
+            by  
         """
         obs_ = self._handle_obs_dict(obs)
         action_ = self.policy_function.inference(obs_)
